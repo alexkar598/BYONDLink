@@ -8,21 +8,22 @@ const net = require("net")
  */
 class byondLink{
 	/**
-	 *Creates an instance of byondLink.Requires a host/ip,port and authorisation key(leave empty if key not in use)
+	 *Creates an instance of byondLink.Requires a host/ip,port.Set server_port to create a server to receive world.Export() calls
 	 * @param {*} host
 	 * @param {number} port
 	 * @param {string} key
-	 * @param {boolean} [register_server=false]
+	 * @param {number} [server_port = 0]
 	 * @memberof byondLink
 	 */
-	constructor(host,port,key = "key",register_server = false){
+	constructor(host,port,server_port = 0){
 		this.host = host
 		this.port = port
-		this.key = key
 		this.server = null
 		this.lastError = null
 
-		if(register_server) register_server()
+		if(server_port) {
+			this.register_server(server_port)
+		}
 	}
 	/**
 	 *Sends data to world/Topic()
@@ -50,12 +51,14 @@ class byondLink{
 			socket.write(this.topic_packet(data))
 		})
 		socket.addListener("data",(e) => {
-			let data = this.process_data(e.buffer)
-			if(data !== false){
+			if(typeof(cb) != "function"){
 				socket.end()
-				if(typeof(cb) == "function"){
-					cb(data)
-				}
+				return
+			}
+			let data = this.process_data(e.buffer)
+			if(data !== -1){
+				cb(data)
+				socket.end()
 			}
 		})
 		socket.addListener("end",(e) => {
@@ -96,7 +99,7 @@ class byondLink{
 	process_data(buffer){
 		let view = new DataView(buffer)
 		if(view.getUint16(0) !== 0x0083){
-			return false //not what we are looking for
+			return -1 //not what we are looking for
 		}
 		let len = view.getUint16(2)
 		let type = view.getUint8(4)
@@ -115,10 +118,32 @@ class byondLink{
 				return view.getFloat32(5,true)
 		}
 	}
-	register_server(){
-		this.server = true;
+
+	buf2hex(buffer) { // buffer is an ArrayBuffer
+		return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
+	  }
+	register_server(server_port){
+		/**
+		 * @type {net.Server}
+		 */
+		this.server = net.createServer((c) => {
+			console.log("connect")
+			c.on("data", (e) => {
+				console.log(this.buf2hex(e.buffer))
+				c.end()
+			})
+			c.on("timeout", (e) => {
+				console.log("timeout server,ending")
+				c.end()
+			})
+			c.on("end", () => console.log("connect end"))
+		})
+		this.server.listen(server_port,() => console.log("bound"))
 		console.log("Registering server")
 	}
 }
 
 module.exports = byondLink
+
+
+//0015 001c 0002 0000db0100005d99551f817ebc3f55aef23261537d3f1366ff0f
