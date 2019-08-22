@@ -1,0 +1,22 @@
+{
+  "name": "byondlink",
+  "version": "1.0.0",
+  "description": "Socket based module to communicate to BYOND via Topic calls",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexkar598/NodeHost.git"
+  },
+  "keywords": [
+    "byond"
+  ],
+  "author": "alexkar598",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/alexkar598/NodeHost/issues"
+  },
+  "homepage": "https://github.com/alexkar598/NodeHost#readme"
+}
