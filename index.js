@@ -1,28 +1,36 @@
+/* eslint-disable no-case-declarations */
 const net = require("net")
+const http = require("http")
+const Buffer = require("buffer").Buffer
+const emitter = require("events").EventEmitter
+
 
 /**
  *Sends and receives data from BYOND
  *
- * @export
  * @class byondLink
+ * @extends {emitter}
  */
-class byondLink{
+class byondLink extends emitter{
 	/**
-	 *Creates an instance of byondLink.Requires a host/ip,port.Set server_port to create a server to receive world.Export() calls
+	 *Creates an instance of byondLink.Requires a host/ip,port.Set server_port to create a server to receive world.Export() calls. 
+	 Add a callback in server_cb to be able to access the reply and response objects directly.
 	 * @param {*} host
 	 * @param {number} port
 	 * @param {string} key
 	 * @param {number} [server_port = 0]
+	 * @param {function({http.IncomingMessage},{http.ServerResponse}):void} [server_cb=null]
 	 * @memberof byondLink
 	 */
-	constructor(host,port,server_port = 0){
+	constructor(host,port,server_port = 0,server_cb = null){
+		super()
 		this.host = host
 		this.port = port
 		this.server = null
 		this.lastError = null
 
 		if(server_port) {
-			this.register_server(server_port)
+			this.register_server(server_port,server_cb)
 		}
 	}
 	/**
@@ -36,18 +44,24 @@ class byondLink{
 		/**
 		 * @type {net.Socket}
 		 */
+		if(data[0] !== "?"){
+			data = "?" + data
+		}
 		let socket = net.createConnection(this.port,this.host)
 		socket.addListener("error",(e) => {
 			this.lastError = e.message
+			this.emit("error",e)
 			socket.end()
 			return false
 		})
-		socket.addListener("timeout",(e) => {
+		socket.addListener("timeout",() => {
 			this.lastError = "Timeout"
+			this.emit("error",new Error("Timeout"))
 			socket.end()
 			return false
 		})
-		socket.addListener("connect",(e) => {
+		socket.addListener("connect",(...e) => {
+			this.emit("connect",...e)
 			socket.write(this.topic_packet(data))
 		})
 		socket.addListener("data",(e) => {
@@ -61,8 +75,8 @@ class byondLink{
 				socket.end()
 			}
 		})
-		socket.addListener("end",(e) => {
-			console.log("end")
+		socket.addListener("end",(...e) => {
+			this.emit("end",...e)
 		})
 	}
 	/**
@@ -75,7 +89,6 @@ class byondLink{
 	topic_packet(data){
 		let datalen = data.length + 6
 		let buflen = 2 + 2 + 5 + data.length + 1
-		let len = datalen.toString(16).padStart(4,"0")
 		let bytes = Buffer.alloc(buflen)
 
 		bytes[0] = 0x00
@@ -105,45 +118,44 @@ class byondLink{
 		let type = view.getUint8(4)
 		
 		switch (type) {
-			case 0:
-				return null
-			case 0x06:
-				let retval = ""
-				for (let i = 0; i < (len-2); i++) { //its (len - 2) to remove the nullbyte and the type byte
-					const element = view.getUint8([5 + i]);
-					retval = retval + String.fromCharCode(element)
-				}
-				return retval
-			case 0x2a:
-				return view.getFloat32(5,true)
+		case 0:
+			return null
+		case 0x06:
+			let retval = ""
+			for (let i = 0; i < (len-2); i++) { //its (len - 2) to remove the nullbyte and the type byte
+				const element = view.getUint8([5 + i])
+				retval = retval + String.fromCharCode(element)
+			}
+			return retval
+		case 0x2a:
+			return view.getFloat32(5,true)
 		}
 	}
 
-	buf2hex(buffer) { // buffer is an ArrayBuffer
-		return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
-	  }
-	register_server(server_port){
-		/**
-		 * @type {net.Server}
-		 */
-		this.server = net.createServer((c) => {
-			console.log("connect")
-			c.on("data", (e) => {
-				console.log(this.buf2hex(e.buffer))
-				c.end()
-			})
-			c.on("timeout", (e) => {
-				console.log("timeout server,ending")
-				c.end()
-			})
-			c.on("end", () => console.log("connect end"))
+	/**
+	 * Enables the http server,requires a port argument
+	 *
+	 * @param {number} server_port
+	 * @param {function({http.IncomingMessage},{http.ServerResponse}):void} server_cb
+	 * @memberof byondLink
+	 * @fires byondLink#topic
+	 */
+	register_server(server_port,server_cb){
+		let server = http.createServer((req,res) => {
+			if(typeof(server_cb) == "function"){
+				server_cb(req,res)
+			}else{
+				this.emit("topic",req.url)
+				res.end("Success","ascii")
+			}
 		})
-		this.server.listen(server_port,() => console.log("bound"))
-		console.log("Registering server")
+		server.listen(server_port)
 	}
 }
-
 module.exports = byondLink
-
-
-//0015 001c 0002 0000db0100005d99551f817ebc3f55aef23261537d3f1366ff0f
+/**
+* Topic event
+* @event byondLink#topic
+* @type {object}
+* @property {string} topic Data provided by export call
+*/
