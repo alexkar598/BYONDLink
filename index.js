@@ -17,7 +17,6 @@ class byondLink extends emitter{
 	 Add a callback in server_cb to be able to access the reply and response objects directly.
 	 * @param {*} host
 	 * @param {number} port
-	 * @param {string} key
 	 * @param {number} [server_port = 0]
 	 * @param {function({http.IncomingMessage},{http.ServerResponse}):void} [server_cb=null]
 	 * @memberof byondLink
@@ -26,7 +25,6 @@ class byondLink extends emitter{
 		super()
 		this.host = host
 		this.port = port
-		this.server = null
 		this.lastError = null
 
 		if(server_port) {
@@ -141,7 +139,7 @@ class byondLink extends emitter{
 	 * @fires byondLink#topic
 	 */
 	register_server(server_port,server_cb){
-		let server = http.createServer((req,res) => {
+		this.server = http.createServer((req,res) => {
 			if(typeof(server_cb) == "function"){
 				server_cb(req,res)
 			}else{
@@ -149,7 +147,15 @@ class byondLink extends emitter{
 				res.end("Success","ascii")
 			}
 		})
-		server.listen(server_port)
+		this.server.listen(server_port)
+	}
+	/**
+	 *Stops the server
+	 *
+	 * @memberof byondLink
+	 */
+	stop_server(){
+		this.server.close()
 	}
 }
 module.exports = byondLink
