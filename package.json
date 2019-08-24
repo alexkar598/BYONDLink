@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alexkar598/NodeHost.git"
+    "url": "git+https://github.com/alexkar598/byondlink.git"
   },
   "keywords": [
     "byond"
@@ -16,7 +16,7 @@
   "author": "alexkar598",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/alexkar598/NodeHost/issues"
+    "url": "https://github.com/alexkar598/byondlink/issues"
   },
-  "homepage": "https://github.com/alexkar598/NodeHost#readme"
+  "homepage": "https://github.com/alexkar598/byondlink#readme"
 }
