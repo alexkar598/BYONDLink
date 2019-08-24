@@ -178,7 +178,7 @@ class byondLink extends emitter{
 				res.end("Success","ascii")
 			}
 		})
-		this.server.listen(server_port)
+		this.server.listen(server_port).on("error",(error) => this.emit("error",error))
 	}
 	/**
 	 *Stops the server
