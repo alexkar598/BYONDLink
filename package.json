@@ -1,6 +1,6 @@
 {
   "name": "byondlink",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Socket based module to communicate to BYOND via Topic calls",
   "main": "index.js",
   "scripts": {
