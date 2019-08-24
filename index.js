@@ -36,11 +36,12 @@ class byondLink extends emitter{
 	 * @param {function({http.IncomingMessage},{http.ServerResponse}):void} [server_cb=null]
 	 * @memberof byondLink
 	 */
-	constructor(host,port,server_port = 0,server_cb = null){
+	constructor(host,port,server_port = 0,server_cb = null,suffix = ""){
 		super()
 		this.host = host
 		this.port = port
 		this.lastError = null
+		this.suffix = suffix
 
 		if(server_port) {
 			this.register_server(server_port,server_cb)
@@ -53,7 +54,7 @@ class byondLink extends emitter{
 	 * @param {function(void|number|string):void} cb
 	 * @memberof byondLink
 	 */
-	send(data,cb = null){
+	send(data,cb = null,ignoreSuffix = false){
 		let databuf = new Uint8Array()
 		let len = null
 		/**
@@ -62,6 +63,10 @@ class byondLink extends emitter{
 		if(data[0] !== "?"){
 			data = "?" + data
 		}
+		if(this.suffix && !ignoreSuffix){
+			data = data + this.suffix
+		}
+
 		let socket = net.createConnection(this.port,this.host)
 		socket.addListener("error",(e) => {
 			this.lastError = e.message
