@@ -4,10 +4,25 @@ const http = require("http")
 const Buffer = require("buffer").Buffer
 const emitter = require("events").EventEmitter
 
+function concatenate(resultConstructor, ...arrays) {
+	let totalLength = 0
+	for (const arr of arrays) {
+		totalLength += arr.length
+	}
+	const result = new resultConstructor(totalLength)
+	let offset = 0
+	for (const arr of arrays) {
+		result.set(arr, offset)
+		offset += arr.length
+	}
+	return result
+}
+
 
 /**
  *Sends and receives data from BYOND
  *
+ * @export
  * @class byondLink
  * @extends {emitter}
  */
@@ -39,6 +54,8 @@ class byondLink extends emitter{
 	 * @memberof byondLink
 	 */
 	send(data,cb = null){
+		let databuf = new Uint8Array()
+		let len = null
 		/**
 		 * @type {net.Socket}
 		 */
@@ -67,11 +84,24 @@ class byondLink extends emitter{
 				socket.end()
 				return
 			}
-			let data = this.process_data(e.buffer)
-			if(data !== -1){
-				cb(data)
-				socket.end()
+			databuf = concatenate(Buffer,databuf, e)
+
+			if(databuf.length >= 4){ //read length when you get it
+				let view = new DataView(e.buffer)
+				if(view.getUint16(0) !== 0x0083){
+					databuf = new Uint8Array()
+					return //not what we are looking for
+				}
+				len = view.getUint16(2)
 			}
+
+			let bodybuf = databuf.buffer.slice(4)
+			if(bodybuf.length < len){
+				return //do not do anything if its not the whole packet
+			}
+			let data = this.process_data(bodybuf,len)
+			socket.end()
+			cb(data)
 		})
 		socket.addListener("end",(...e) => {
 			this.emit("end",...e)
@@ -103,30 +133,26 @@ class byondLink extends emitter{
 	/**
 	 * Decodes data from the reply to a Topic call
 	 *
-	 * @param {Buffer} buffer
+	 * @param {ArrayBuffer} buffer
 	 * @returns {void\|number\|string}
 	 * @memberof byondLink
 	 */
-	process_data(buffer){
+	process_data(buffer,length){
 		let view = new DataView(buffer)
-		if(view.getUint16(0) !== 0x0083){
-			return -1 //not what we are looking for
-		}
-		let len = view.getUint16(2)
-		let type = view.getUint8(4)
+		let type = view.getUint8(0)
 		
 		switch (type) {
 		case 0:
 			return null
 		case 0x06:
 			let retval = ""
-			for (let i = 0; i < (len-2); i++) { //its (len - 2) to remove the nullbyte and the type byte
-				const element = view.getUint8([5 + i])
+			for (let i = 0; i < (length - 1); i++) { //its (len - 2) to remove the nullbyte and the type byte
+				const element = view.getUint8([1 + i])
 				retval = retval + String.fromCharCode(element)
 			}
 			return retval
 		case 0x2a:
-			return view.getFloat32(5,true)
+			return view.getFloat32(1,true)
 		}
 	}
 
@@ -158,6 +184,7 @@ class byondLink extends emitter{
 		this.server.close()
 	}
 }
+
 module.exports = byondLink
 /**
 * Topic event
